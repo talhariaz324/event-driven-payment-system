@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      - run: npm ci --workspaces --include-workspace-root --ignore-scripts
+      - run: npm install --workspaces --include-workspace-root --ignore-scripts --no-audit --prefer-offline
       - name: build shared packages
         run: |
           npm run build --workspace=@eds/shared-types
