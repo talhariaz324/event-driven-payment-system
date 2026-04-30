@@ -1,5 +1,10 @@
 # event-driven-payment-system
 
+[![ci](https://github.com/talhariaz324/event-driven-payment-system/actions/workflows/ci.yml/badge.svg)](https://github.com/talhariaz324/event-driven-payment-system/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](.nvmrc)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)](tsconfig.base.json)
+
 Production-grade event-driven payment system built with **NestJS**, **Apache Kafka**, **PostgreSQL**, **Redis**, and the **Transactional Outbox Pattern**.
 
 This repo is a teaching architecture — every design choice (and its tradeoffs) is documented. It demonstrates the patterns you reach for when a synchronous monolith stops scaling: bounded contexts, asynchronous fan-out, exactly-once-effective processing, and survivable failure modes.
