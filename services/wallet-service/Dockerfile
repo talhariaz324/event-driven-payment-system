@@ -1,4 +1,4 @@
-FROM node:20-alpine AS deps
+FROM node:25-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
 COPY services/wallet-service/package.json services/wallet-service/
@@ -6,7 +6,7 @@ COPY packages/shared-types/package.json packages/shared-types/
 COPY packages/kafka-core/package.json packages/kafka-core/
 RUN npm install --workspaces --include-workspace-root
 
-FROM node:20-alpine AS build
+FROM node:25-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -14,7 +14,7 @@ RUN npm run build --workspace=@eds/shared-types
 RUN npm run build --workspace=@eds/kafka-core
 RUN npm run build --workspace=@eds/wallet-service
 
-FROM node:20-alpine AS runtime
+FROM node:25-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
