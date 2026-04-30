@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { createKafka, KafkaProducer } from '@eds/kafka-core';
 import type { EventEnvelope } from '@eds/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
+import { MetricsService } from '../metrics/metrics.service';
 
 const MAX_ATTEMPTS = 10;
 
@@ -17,6 +18,7 @@ export class OutboxWorker implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly metrics: MetricsService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -68,9 +70,14 @@ export class OutboxWorker implements OnModuleInit, OnModuleDestroy {
         FOR UPDATE SKIP LOCKED
       `;
 
+      // Update lag gauge — pending count is the operator-facing health signal
+      const pending = await this.prisma.outboxEvent.count({ where: { status: 'PENDING' } });
+      this.metrics.outboxPending.set(pending);
+
       if (rows.length === 0) return;
 
       for (const row of rows) {
+        const stopTimer = this.metrics.outboxPublishDuration.startTimer();
         try {
           await this.producer.send({
             topic: row.topic,
@@ -85,7 +92,10 @@ export class OutboxWorker implements OnModuleInit, OnModuleDestroy {
               attempts: { increment: 1 },
             },
           });
+          stopTimer();
+          this.metrics.outboxPublished.inc({ topic: row.topic });
         } catch (err) {
+          stopTimer();
           const failed = row.attempts + 1 >= MAX_ATTEMPTS;
           await this.prisma.outboxEvent.update({
             where: { id: row.id },
@@ -95,6 +105,7 @@ export class OutboxWorker implements OnModuleInit, OnModuleDestroy {
               lastError: err instanceof Error ? err.message : String(err),
             },
           });
+          if (failed) this.metrics.outboxFailed.inc({ topic: row.topic });
           this.log.warn(
             `outbox publish failed (id=${row.id}, attempts=${row.attempts + 1})`,
             err instanceof Error ? err.stack : undefined,
