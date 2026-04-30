@@ -1,0 +1,134 @@
+name: eds
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: eds-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: payments
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: eds-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  kafka:
+    image: bitnami/kafka:3.7
+    container_name: eds-kafka
+    restart: unless-stopped
+    ports:
+      - '9092:9092'
+      - '9094:9094'
+    environment:
+      KAFKA_CFG_NODE_ID: 0
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_CFG_NUM_PARTITIONS: '6'
+      ALLOW_PLAINTEXT_LISTENER: 'yes'
+    volumes:
+      - kafka_data:/bitnami/kafka
+
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: eds-api-gateway
+    restart: unless-stopped
+    env_file:
+      - ../services/api-gateway/.env
+    ports:
+      - '3000:3000'
+    depends_on:
+      payment-service:
+        condition: service_started
+
+  payment-service:
+    build:
+      context: ..
+      dockerfile: services/payment-service/Dockerfile
+    container_name: eds-payment-service
+    restart: unless-stopped
+    env_file:
+      - ../services/payment-service/.env
+    ports:
+      - '3001:3001'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  wallet-service:
+    build:
+      context: ..
+      dockerfile: services/wallet-service/Dockerfile
+    container_name: eds-wallet-service
+    restart: unless-stopped
+    env_file:
+      - ../services/wallet-service/.env
+    ports:
+      - '3002:3002'
+    depends_on:
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  ledger-service:
+    build:
+      context: ..
+      dockerfile: services/ledger-service/Dockerfile
+    container_name: eds-ledger-service
+    restart: unless-stopped
+    env_file:
+      - ../services/ledger-service/.env
+    ports:
+      - '3003:3003'
+    depends_on:
+      kafka:
+        condition: service_started
+
+  notification-service:
+    build:
+      context: ..
+      dockerfile: services/notification-service/Dockerfile
+    container_name: eds-notification-service
+    restart: unless-stopped
+    env_file:
+      - ../services/notification-service/.env
+    ports:
+      - '3004:3004'
+    depends_on:
+      kafka:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  kafka_data:

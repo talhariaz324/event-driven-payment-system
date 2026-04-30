@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: build + lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci --workspaces --include-workspace-root --ignore-scripts
+      - name: build shared packages
+        run: |
+          npm run build --workspace=@eds/shared-types
+          npm run build --workspace=@eds/kafka-core
+      - name: build services
+        run: |
+          npm run build --workspace=@eds/api-gateway
+          npm run build --workspace=@eds/payment-service
+          npm run build --workspace=@eds/wallet-service
+          npm run build --workspace=@eds/ledger-service
+          npm run build --workspace=@eds/notification-service
+      - name: lint
+        run: npm run lint
