@@ -1,0 +1,27 @@
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY package.json package-lock.json* ./
+COPY services/notification-service/package.json services/notification-service/
+COPY packages/shared-types/package.json packages/shared-types/
+COPY packages/kafka-core/package.json packages/kafka-core/
+RUN npm install --workspaces --include-workspace-root
+
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npm run build --workspace=@eds/shared-types
+RUN npm run build --workspace=@eds/kafka-core
+RUN npm run build --workspace=@eds/notification-service
+
+FROM node:20-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/packages ./packages
+COPY --from=build /app/services/notification-service/dist ./services/notification-service/dist
+COPY --from=build /app/services/notification-service/package.json ./services/notification-service/
+COPY --from=build /app/services/notification-service/node_modules ./services/notification-service/node_modules
+EXPOSE 3004
+USER node
+CMD ["node", "services/notification-service/dist/main.js"]

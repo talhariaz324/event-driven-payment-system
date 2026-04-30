@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Payment {
+  id             String        @id @default(uuid()) @db.Uuid
+  userId         String        @db.Uuid
+  amount         Decimal       @db.Decimal(18, 4)
+  currency       String        @db.VarChar(3)
+  status         PaymentStatus @default(INITIATED)
+  idempotencyKey String        @unique @map("idempotency_key")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([status])
+  @@map("payments")
+}
+
+enum PaymentStatus {
+  INITIATED
+  AUTHORIZED
+  SETTLED
+  FAILED
+
+  @@map("payment_status")
+}
+
+model OutboxEvent {
+  id            String      @id @default(uuid()) @db.Uuid
+  aggregateType String      @map("aggregate_type")
+  aggregateId   String      @map("aggregate_id")
+  eventType     String      @map("event_type")
+  topic         String
+  payload       Json
+  status        OutboxStatus @default(PENDING)
+  attempts      Int         @default(0)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  publishedAt   DateTime?   @map("published_at")
+  lastError     String?     @map("last_error")
+
+  @@index([status, createdAt])
+  @@map("outbox_events")
+}
+
+enum OutboxStatus {
+  PENDING
+  PUBLISHED
+  FAILED
+
+  @@map("outbox_status")
+}
+
+model ProcessedEvent {
+  eventId    String   @id @map("event_id")
+  consumer   String
+  processedAt DateTime @default(now()) @map("processed_at")
+
+  @@map("processed_events")
+}
