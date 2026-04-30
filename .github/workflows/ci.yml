@@ -6,9 +6,13 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
-    name: build + lint
+  install:
+    name: install + cache
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,16 +21,57 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm install --workspaces --include-workspace-root --ignore-scripts --no-audit --prefer-offline
-      - name: build shared packages
+
+  lint:
+    name: lint
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm install --workspaces --include-workspace-root --ignore-scripts --no-audit --prefer-offline
+      - run: npm run lint
+
+  build-shared:
+    name: build shared packages
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm install --workspaces --include-workspace-root --ignore-scripts --no-audit --prefer-offline
+      - run: npm run build --workspace=@eds/shared-types
+      - run: npm run build --workspace=@eds/kafka-core
+
+  build-services:
+    name: build (${{ matrix.service }})
+    needs: build-shared
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - api-gateway
+          - payment-service
+          - wallet-service
+          - ledger-service
+          - notification-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm install --workspaces --include-workspace-root --ignore-scripts --no-audit --prefer-offline
+      - name: build shared deps
         run: |
           npm run build --workspace=@eds/shared-types
           npm run build --workspace=@eds/kafka-core
-      - name: build services
-        run: |
-          npm run build --workspace=@eds/api-gateway
-          npm run build --workspace=@eds/payment-service
-          npm run build --workspace=@eds/wallet-service
-          npm run build --workspace=@eds/ledger-service
-          npm run build --workspace=@eds/notification-service
-      - name: lint
-        run: npm run lint
+      - name: build ${{ matrix.service }}
+        run: npm run build --workspace=@eds/${{ matrix.service }}
