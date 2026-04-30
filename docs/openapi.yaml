@@ -1,0 +1,170 @@
+openapi: 3.1.0
+info:
+  title: event-driven-payment-system API
+  version: 0.1.0
+  description: |
+    Public API surface for the payment platform. Served by `api-gateway`,
+    which routes to backend services.
+
+    **Idempotency.** All mutating endpoints accept an `Idempotency-Key`
+    header (UUIDv4 recommended). Re-sending the same key returns the
+    original response without re-executing the side effect. Keys are
+    valid for 24 hours.
+
+    **Authentication.** Bearer JWT issued by `auth` service. Tokens are
+    short-lived (15 min). Use the refresh endpoint to renew.
+
+    **Errors.** RFC 7807 problem-details format. Always include a
+    machine-readable `type` URI and human-readable `title`.
+
+servers:
+  - url: https://api.example.com
+    description: Production
+  - url: http://localhost:3000
+    description: Local dev (docker compose)
+
+tags:
+  - name: payments
+    description: Payment lifecycle (initiate, query, refund)
+  - name: health
+    description: Liveness and readiness probes
+
+paths:
+  /health/liveness:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      description: Returns 200 if the service process is running. Does NOT check downstream dependencies.
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [ok] }
+
+  /health/readiness:
+    get:
+      tags: [health]
+      summary: Readiness probe
+      description: |
+        Returns 200 only if the service can serve traffic — Postgres reachable,
+        Kafka producer connected, etc. ECS uses this to decide whether to
+        register the task with the ALB target group.
+      responses:
+        '200': { description: Ready to serve traffic }
+        '503': { description: Not ready (dependency unavailable) }
+
+  /payments:
+    post:
+      tags: [payments]
+      summary: Initiate a payment
+      description: |
+        Creates a payment row and enqueues a `payment.initiated` event via the
+        transactional outbox. Returns 202 (accepted) — the payment is durable
+        but downstream side effects (wallet debit, ledger entry, notification)
+        happen asynchronously via Kafka consumers.
+
+        **Idempotency-Key header is required.** If you re-send the same key,
+        you get the original response back (no double-charge).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitiatePaymentRequest'
+      responses:
+        '202':
+          description: Payment accepted (async settlement)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitiatePaymentResponse'
+        '400':
+          description: Validation error (missing Idempotency-Key, non-positive amount, unsupported currency)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Missing or invalid bearer token
+        '409':
+          description: Idempotency-Key reused with different request body
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: UUIDv4. Re-sending the same key returns the original response.
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    InitiatePaymentRequest:
+      type: object
+      required: [userId, amount, currency]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          format: decimal
+          exclusiveMinimum: 0
+          example: 100.00
+        currency:
+          type: string
+          enum: [USD, EUR, GBP]
+          example: USD
+
+    InitiatePaymentResponse:
+      type: object
+      required: [paymentId, status, deduplicated]
+      properties:
+        paymentId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [INITIATED, AUTHORIZED, SETTLED, FAILED]
+        deduplicated:
+          type: boolean
+          description: True if this is a replay of a prior request with the same Idempotency-Key.
+
+    ProblemDetails:
+      type: object
+      description: RFC 7807 problem details
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
