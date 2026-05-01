@@ -201,8 +201,9 @@ outbox_events (
 )
 
 processed_events (
-  event_id        text pk,
+  event_id        text,
   consumer        text,
+  primary key (event_id, consumer),
   processed_at    timestamptz
 )
 ```
