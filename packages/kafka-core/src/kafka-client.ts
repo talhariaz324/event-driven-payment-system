@@ -1,4 +1,4 @@
-import { Kafka, logLevel } from 'kafkajs';
+import { Kafka, logLevel, type SASLOptions } from 'kafkajs';
 import type { KafkaConfig } from './types';
 
 let cachedKafka: Kafka | null = null;
@@ -9,7 +9,11 @@ export function createKafka(config: KafkaConfig): Kafka {
     brokers: config.brokers,
     clientId: config.clientId,
     ssl: config.ssl,
-    sasl: config.sasl,
+    // kafkajs's SASLOptions is a discriminated union on `mechanism`. The
+    // narrower input type in our KafkaConfig is structurally compatible but
+    // TS can't prove the discrimination through the optional/union edge —
+    // cast at the boundary, not at every call site.
+    sasl: config.sasl as SASLOptions | undefined,
     logLevel: logLevel.WARN,
     retry: {
       initialRetryTime: 300,
