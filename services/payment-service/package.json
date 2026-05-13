@@ -4,13 +4,17 @@
   "private": true,
   "main": "dist/main.js",
   "scripts": {
+    "prebuild": "prisma generate --schema=prisma/schema.prisma",
     "build": "nest build",
+    "pretest": "prisma generate --schema=prisma/schema.prisma",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:cov": "jest --coverage"
+    "test:cov": "jest --coverage",
+    "prisma:generate": "prisma generate --schema=prisma/schema.prisma",
+    "prisma:migrate:deploy": "prisma migrate deploy --schema=prisma/schema.prisma"
   },
   "dependencies": {
     "@eds/kafka-core": "*",
@@ -49,10 +53,11 @@
     "rootDir": ".",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
+      "^.+\\.ts$": "ts-jest"
     },
-    "collectCoverageFrom": ["src/**/*.ts"],
+    "collectCoverageFrom": ["src/**/*.ts", "!src/generated/**"],
     "coverageDirectory": "./coverage",
+    "testPathIgnorePatterns": ["/node_modules/", "/dist/", "/generated/"],
     "testEnvironment": "node",
     "moduleNameMapper": {
       "^@eds/(.*)$": "<rootDir>/../../packages/$1/src"
