@@ -1,5 +1,9 @@
 generator client {
+  // Each service gets its own generated client so the two schemas
+  // (payment-service and wallet-service) don't trample one another in the
+  // shared workspace node_modules.
   provider = "prisma-client-js"
+  output   = "../src/generated/prisma-client"
 }
 
 datasource db {
@@ -56,10 +60,15 @@ enum OutboxStatus {
   @@map("outbox_status")
 }
 
+// Composite primary key on (event_id, consumer): the same event flows to
+// multiple consumer groups (wallet, ledger, notification) and each one
+// independently marks the event as processed for its own group. A single-
+// column PK would make the second consumer's INSERT collide with the first.
 model ProcessedEvent {
-  eventId    String   @id @map("event_id")
-  consumer   String
+  eventId     String   @map("event_id")
+  consumer    String
   processedAt DateTime @default(now()) @map("processed_at")
 
+  @@id([eventId, consumer])
   @@map("processed_events")
 }

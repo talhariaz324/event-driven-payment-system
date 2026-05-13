@@ -27,4 +27,7 @@ COPY --from=build /app/services/payment-service/package.json ./services/payment-
 COPY --from=build /app/services/payment-service/node_modules ./services/payment-service/node_modules
 EXPOSE 3001
 USER node
-CMD ["node", "services/payment-service/dist/main.js"]
+# Apply pending Prisma migrations before booting. Production deploys should
+# run `migrate deploy` as a separate pre-deploy step to avoid races between
+# concurrent boots, but this is the right ergonomics for the local stack.
+CMD ["sh", "-c", "cd services/payment-service && npx prisma migrate deploy --schema=prisma/schema.prisma && node dist/main.js"]
