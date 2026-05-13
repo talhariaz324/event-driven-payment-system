@@ -60,14 +60,18 @@ describe('PaymentsService', () => {
     };
 
     it('rejects request without idempotency key', async () => {
-      await expect(
-        service.initiate({ ...baseInput, idempotencyKey: '' }),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.initiate({ ...baseInput, idempotencyKey: '' })).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('rejects non-positive amount', async () => {
-      await expect(service.initiate({ ...baseInput, amount: 0 })).rejects.toThrow(BadRequestException);
-      await expect(service.initiate({ ...baseInput, amount: -1 })).rejects.toThrow(BadRequestException);
+      await expect(service.initiate({ ...baseInput, amount: 0 })).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.initiate({ ...baseInput, amount: -1 })).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('creates payment and outbox event on first call', async () => {

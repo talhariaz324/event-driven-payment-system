@@ -58,7 +58,10 @@ export class KafkaConsumer {
     try {
       event = JSON.parse(message.value.toString());
     } catch (err) {
-      log.error({ err, topic, partition, offset: message.offset }, 'malformed message — sending to DLQ');
+      log.error(
+        { err, topic, partition, offset: message.offset },
+        'malformed message — sending to DLQ',
+      );
       await this.toDlq(payload, 'malformed-json');
       return;
     }

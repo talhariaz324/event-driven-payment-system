@@ -7,9 +7,7 @@ export class NotificationsService {
 
   async sendPaymentSettled(event: EventEnvelope<PaymentSettledPayload>): Promise<void> {
     const { paymentId, userId, amount, currency } = event.payload;
-    this.log.log(
-      `notify user=${userId} payment=${paymentId} settled ${amount} ${currency}`,
-    );
+    this.log.log(`notify user=${userId} payment=${paymentId} settled ${amount} ${currency}`);
     // TODO: real channel dispatch (email/sms/push) — must be idempotent on event.eventId
   }
 }
