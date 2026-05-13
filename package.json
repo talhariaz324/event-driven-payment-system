@@ -2,7 +2,7 @@
   "name": "event-driven-payment-system",
   "version": "0.1.0",
   "private": true,
-  "description": "Production-grade event driven payment system using NestJS, Kafka, Redis, PostgreSQL, Outbox Pattern",
+  "description": "Reference event-driven payment system using NestJS, Kafka, PostgreSQL, Outbox Pattern",
   "workspaces": [
     "packages/*",
     "services/*"

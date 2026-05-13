@@ -5,9 +5,9 @@
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](.nvmrc)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)](tsconfig.base.json)
 
-Production-grade event-driven payment system built with **NestJS**, **Apache Kafka**, **PostgreSQL**, **Redis**, and the **Transactional Outbox Pattern**.
+Reference architecture for an event-driven payment system built with **NestJS**, **Apache Kafka**, **PostgreSQL**, and the **Transactional Outbox Pattern**.
 
-This repo is a teaching architecture — every design choice (and its tradeoffs) is documented. It demonstrates the patterns you reach for when a synchronous monolith stops scaling: bounded contexts, asynchronous fan-out, exactly-once-effective processing, and survivable failure modes.
+This repo is a teaching architecture — every design choice (and its tradeoff) is documented inline. It demonstrates the patterns you reach for when a synchronous monolith stops scaling: bounded contexts, asynchronous fan-out, exactly-once-effective processing, and survivable failure modes. The write-path (`payment-service` → outbox → Kafka) and one consumer (`wallet-service`, debiting balances with composite-key idempotency and optimistic locking) are implemented end-to-end. `ledger-service` and `notification-service` are scaffolded skeletons whose role is documented but not built.
 
 ---
 
@@ -153,19 +153,25 @@ Implemented in `@eds/kafka-core/src/kafka-consumer.ts`:
 
 ---
 
-## 6. Redis caching strategy
+## 6. Redis caching strategy (designed, not yet implemented)
 
-Two patterns:
+Section 6 documents the cache layer the architecture is designed for, not
+code that currently ships. The repo does not import `ioredis` from any
+business path; the `redis` container in docker-compose is leftover scaffolding
+from an earlier iteration and is scheduled for removal in a follow-up.
+Listing this honestly so reviewers can match claim to code.
 
-- **Read-through** for `GET /payments/:id`: cache key `payment:{id}`, TTL 60s, populated lazily on first read after cache miss
-- **Cache-aside with event invalidation** for hot reads of derived state (e.g. user balance): invalidate on `payment.settled` event from the consumer side
+When this lands, two patterns:
 
-Stampede protection: Redis `SETNX` with a short lock, falling back to a soft-stale value while one process refreshes. Don't naively let N concurrent cache misses each call the database.
+- **Read-through** for `GET /payments/:id` (which is also pending): cache key `payment:{id}`, TTL 60s, populated lazily on first read after cache miss.
+- **Cache-aside with event invalidation** for hot reads of derived state (e.g. user balance): invalidate on `payment.settled` event from the consumer side.
 
-What we explicitly do NOT cache:
+Stampede protection: Redis `SETNX` with a short lock, falling back to a soft-stale value while one process refreshes. N concurrent cache misses must not all stampede the database.
 
-- Write-side data (payments table) — caching the source of truth introduces consistency bugs you can't reason about
-- Anything time-sensitive enough that a 60s stale read causes a financial bug — e.g. credit-limit checks
+What we explicitly do NOT plan to cache:
+
+- Write-side data (payments table) — caching the source of truth introduces consistency bugs you can't reason about.
+- Anything time-sensitive enough that a 60s stale read causes a financial bug — e.g. credit-limit checks.
 
 ---
 
