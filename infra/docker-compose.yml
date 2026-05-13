@@ -96,10 +96,10 @@ services:
     ports:
       - '3002:3002'
     depends_on:
+      postgres:
+        condition: service_healthy
       kafka:
         condition: service_started
-      redis:
-        condition: service_healthy
 
   ledger-service:
     build:
