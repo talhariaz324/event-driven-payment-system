@@ -20,18 +20,6 @@ services:
       timeout: 3s
       retries: 10
 
-  redis:
-    image: redis:7-alpine
-    container_name: eds-redis
-    restart: unless-stopped
-    ports:
-      - '6379:6379'
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
   kafka:
     image: bitnami/kafka:3.7
     container_name: eds-kafka
@@ -82,8 +70,6 @@ services:
         condition: service_healthy
       kafka:
         condition: service_started
-      redis:
-        condition: service_healthy
 
   wallet-service:
     build:

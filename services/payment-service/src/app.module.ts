@@ -21,9 +21,6 @@ import { MetricsModule } from './metrics/metrics.module';
         KAFKA_BROKERS: Joi.string().required(),
         KAFKA_CLIENT_ID: Joi.string().default('payment-service'),
         KAFKA_GROUP_ID: Joi.string().default('payment-service-consumer'),
-        REDIS_URL: Joi.string()
-          .uri({ scheme: ['redis', 'rediss'] })
-          .required(),
         OUTBOX_POLL_INTERVAL_MS: Joi.number().integer().min(100).default(1000),
         OUTBOX_BATCH_SIZE: Joi.number().integer().min(1).max(1000).default(100),
         LOG_LEVEL: Joi.string().default('info'),

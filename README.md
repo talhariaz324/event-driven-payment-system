@@ -156,10 +156,13 @@ Implemented in `@eds/kafka-core/src/kafka-consumer.ts`:
 ## 6. Redis caching strategy (designed, not yet implemented)
 
 Section 6 documents the cache layer the architecture is designed for, not
-code that currently ships. The repo does not import `ioredis` from any
-business path; the `redis` container in docker-compose is leftover scaffolding
-from an earlier iteration and is scheduled for removal in a follow-up.
-Listing this honestly so reviewers can match claim to code.
+code that currently ships. The `redis` container, `ioredis` dependency, and
+`REDIS_URL` env requirement have all been removed so the repo stops
+advertising infrastructure it doesn't use — `docker compose up` no longer
+spins a Redis container that nothing reads from. Reviewers can match every
+claim in this section to either code (when implemented) or this caveat
+(today). The implementation lands when `GET /payments/:id` is added; both
+ship together so the cache has a real read path to optimize.
 
 When this lands, two patterns:
 
